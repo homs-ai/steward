@@ -1,0 +1,64 @@
+version: "3"
+
+tasks:
+  default:
+    cmds:
+      - task: build
+
+  build:
+    desc: Build the steward binary
+    cmds:
+      - go build -o steward .
+    generates:
+      - steward
+
+  install:
+    desc: Build and install to $GOPATH/bin
+    cmds:
+      - go install .
+    generates:
+      - "{{.GOPATH}}/bin/steward"
+
+  clean:
+    desc: Clean build artifacts
+    cmds:
+      - rm -f steward
+      - rm -rf dist/
+
+  lint:
+    desc: Run golangci-lint
+    cmds:
+      - golangci-lint run ./...
+
+  test:
+    desc: Run all tests
+    cmds:
+      - go test ./... -v
+
+  fmt:
+    desc: Format all Go code
+    cmds:
+      - go fmt ./...
+
+  tidy:
+    desc: Tidy Go module dependencies
+    cmds:
+      - go mod tidy
+      - go mod verify
+
+  release:
+    desc: Run goreleaser (dry-run by default)
+    cmds:
+      - goreleaser release --snapshot --clean
+
+  release-publish:
+    desc: Run goreleaser and publish
+    cmds:
+      - goreleaser release --clean
+    requires:
+      vars: [GITHUB_TOKEN]
+
+  dev:
+    desc: Build and run with live output
+    cmds:
+      - go run . {{.CLI_ARGS}}
