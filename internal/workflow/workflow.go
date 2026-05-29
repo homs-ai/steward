@@ -8,6 +8,7 @@ import (
 	"github.com/k/steward/internal/agent"
 	"github.com/k/steward/internal/config"
 	"github.com/k/steward/internal/feature"
+	"github.com/k/steward/internal/prompts"
 	"github.com/k/steward/internal/telemetry"
 )
 
@@ -15,12 +16,14 @@ type PhaseRunner struct {
 	Config      *config.Config
 	Runner      *agent.Runner
 	ProjectRoot string
+	Interactive bool
 }
 
 func NewPhaseRunner(cfg *config.Config) *PhaseRunner {
 	return &PhaseRunner{
-		Config: cfg,
-		Runner: agent.NewRunner(cfg),
+		Config:      cfg,
+		Runner:      agent.NewRunner(cfg),
+		Interactive: true,
 	}
 }
 
@@ -43,6 +46,38 @@ Write this after the last occurrence of <<<STALE>>> in the relevant file. Do not
 Format it clearly in Markdown.`, feat.DisplayName(), context)
 }
 
+func (pr *PhaseRunner) buildPhasePrompt(feat *feature.Feature, phase string, extraContext string) string {
+	context := fmt.Sprintf("You are working on a software feature called '%s'.", feat.DisplayName())
+	if extraContext != "" {
+		context += "\n\n" + extraContext
+	}
+	return context
+}
+
+func (pr *PhaseRunner) runPhase(ctx context.Context, feat *feature.Feature, phase, batchPrompt string) error {
+	if !pr.Interactive {
+		_, err := pr.Runner.Run(ctx, feat, phase, batchPrompt, pr.ProjectRoot)
+		return err
+	}
+
+	promptText := batchPrompt
+	if promptText == "" {
+		var loadErr error
+		promptText, loadErr = prompts.PromptForPhase(pr.Config.StewardHome, phase)
+		if loadErr != nil {
+			return fmt.Errorf("load prompt for %s: %w", phase, loadErr)
+		}
+	}
+
+	interactivePrompt := pr.buildPhasePrompt(feat, phase, promptText)
+
+	interactiveRunner := agent.NewInteractiveRunner(pr.Config)
+	interactiveRunner.ProjectRoot = pr.ProjectRoot
+
+	_, err := interactiveRunner.RunInteractive(ctx, feat, phase, interactivePrompt, agent.InteractiveOptions{})
+	return err
+}
+
 func (pr *PhaseRunner) Brainstorm(ctx context.Context, feat *feature.Feature, input string) error {
 	prompt := fmt.Sprintf(`You are helping brainstorm for a software feature called '%s'.
 
@@ -61,8 +96,7 @@ Generate a structured brainstorm document covering:
 Write this after the last occurrence of <<<STALE>>> in %s/brainstorm.md. Format it clearly in Markdown.`,
 		feat.DisplayName(), input, feat.Dir)
 
-	_, err := pr.Runner.Run(ctx, feat, "brainstorm", prompt, pr.ProjectRoot)
-	return err
+	return pr.runPhase(ctx, feat, "brainstorm", prompt)
 }
 
 func (pr *PhaseRunner) Research(ctx context.Context, feat *feature.Feature) error {
@@ -89,8 +123,7 @@ Produce a structured research document covering:
 Write this after the last occurrence of <<<STALE>>> in %s/research.md. Format it clearly in Markdown.`,
 		feat.DisplayName(), brainstormContent, feat.Dir)
 
-	_, err := pr.Runner.Run(ctx, feat, "research", prompt, pr.ProjectRoot)
-	return err
+	return pr.runPhase(ctx, feat, "research", prompt)
 }
 
 func (pr *PhaseRunner) Analysis(ctx context.Context, feat *feature.Feature) error {
@@ -120,8 +153,7 @@ Produce a structured analysis document covering:
 Write this after the last occurrence of <<<STALE>>> in %s/analysis.md. Format it clearly in Markdown.`,
 		feat.DisplayName(), brainstormContent, researchContent, feat.Dir)
 
-	_, err := pr.Runner.Run(ctx, feat, "analysis", prompt, pr.ProjectRoot)
-	return err
+	return pr.runPhase(ctx, feat, "analysis", prompt)
 }
 
 func (pr *PhaseRunner) Implement(ctx context.Context, feat *feature.Feature) error {
@@ -147,8 +179,7 @@ After implementation, capture the current changes:
 Write this after the last occurrence of <<<STALE>>> in %s/report.md.`,
 		feat.DisplayName(), reqContent, analysisContent, feat.Dir, feat.Dir, feat.Dir)
 
-	_, err := pr.Runner.Run(ctx, feat, "implement", prompt, pr.ProjectRoot)
-	return err
+	return pr.runPhase(ctx, feat, "implement", prompt)
 }
 
 func (pr *PhaseRunner) Test(ctx context.Context, feat *feature.Feature) error {
@@ -181,8 +212,7 @@ Then perform the testing as described and write a detailed test report to %s/tes
 Write this after the last occurrence of <<<STALE>>> in the relevant files.`,
 		feat.DisplayName(), reqContent, reviewContent, reportContent, feat.Dir, feat.Dir)
 
-	_, err := pr.Runner.Run(ctx, feat, "test", prompt, pr.ProjectRoot)
-	return err
+	return pr.runPhase(ctx, feat, "test", prompt)
 }
 
 func RequireRating(feat *feature.Feature, phase string) {

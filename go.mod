@@ -3,9 +3,11 @@ module github.com/k/steward
 go 1.25.0
 
 require (
+	github.com/creack/pty v1.1.21
 	github.com/fatih/color v1.19.0
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/viper v1.21.0
+	golang.org/x/term v0.30.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 

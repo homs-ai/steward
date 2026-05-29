@@ -15,6 +15,7 @@ var (
 	cfgLoaded          bool
 	currentProject     string
 	currentProjectRoot string
+	batchMode          bool
 )
 
 var rootCmd = &cobra.Command{
@@ -67,6 +68,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().StringP("project", "p", "", "Project name (default: basename of current directory)")
+	rootCmd.PersistentFlags().BoolVarP(&batchMode, "batch", "b", false, "Run in batch mode (non-interactive)")
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(brainstormCmd)
 	rootCmd.AddCommand(researchCmd)

@@ -31,6 +31,7 @@ Phase 2: Captures diff and generates report`,
 
 		pr := workflow.NewPhaseRunner(cfg)
 		pr.ProjectRoot = currentProjectRoot
+		pr.Interactive = !batchMode
 		if err := pr.Implement(ctx, feat); err != nil {
 			return fmt.Errorf("implement: %w", err)
 		}

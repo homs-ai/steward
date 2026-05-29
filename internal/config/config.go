@@ -8,12 +8,14 @@ import (
 )
 
 type AgentConfig struct {
-	Cmd              string            `mapstructure:"cmd"`
-	Phases           []string          `mapstructure:"phases"`
-	MaxInputTokens   int               `mapstructure:"max_input_tokens"`
-	CostPer1KIn      float64           `mapstructure:"cost_per_1k_in"`
-	CostPer1KOut     float64           `mapstructure:"cost_per_1k_out"`
-	Env              map[string]string `mapstructure:"env"`
+	Cmd                string            `mapstructure:"cmd"`
+	Phases             []string          `mapstructure:"phases"`
+	PromptFlag         string            `mapstructure:"prompt_flag"`
+	MaxInputTokens     int               `mapstructure:"max_input_tokens"`
+	CostPer1KIn        float64           `mapstructure:"cost_per_1k_in"`
+	CostPer1KOut       float64           `mapstructure:"cost_per_1k_out"`
+	Env                map[string]string `mapstructure:"env"`
+	InteractiveBackend string            `mapstructure:"interactive_backend"`
 }
 
 type PhaseConfig struct {
@@ -37,6 +39,7 @@ func DefaultConfig() *Config {
 			"claude-code": {
 				Cmd:            "claude",
 				Phases:         []string{"brainstorm", "research", "analysis", "implement", "test"},
+				PromptFlag:     "-p",
 				MaxInputTokens: 32000,
 				CostPer1KIn:    0.003,
 				CostPer1KOut:   0.015,
@@ -44,6 +47,7 @@ func DefaultConfig() *Config {
 			"opencode": {
 				Cmd:            "opencode",
 				Phases:         []string{"brainstorm", "research", "analysis", "implement", "test"},
+				PromptFlag:     "--prompt",
 				MaxInputTokens: 32000,
 				CostPer1KIn:    0.002,
 				CostPer1KOut:   0.010,
@@ -51,6 +55,7 @@ func DefaultConfig() *Config {
 			"aider": {
 				Cmd:            "aider",
 				Phases:         []string{"implement"},
+				PromptFlag:     "--message",
 				MaxInputTokens: 24000,
 				CostPer1KIn:    0.002,
 				CostPer1KOut:   0.008,
