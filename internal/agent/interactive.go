@@ -78,7 +78,7 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 		return nil, fmt.Errorf("record start: %w", err)
 	}
 
-	args := r.buildAgentArgs(agentCfg, agentName, phase)
+	args := r.buildAgentArgs(agentCfg, agentName, phase, promptText)
 	cmd := exec.CommandContext(ctx, agentCfg.Cmd, args...)
 
 	workDir := r.ProjectRoot
@@ -115,7 +115,7 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 
 	time.Sleep(500 * time.Millisecond)
 
-	if promptText != "" {
+	if len(args) == 0 && promptText != "" {
 		if stdinProvider, ok := backend.(interface{ Stdin() *os.File }); ok {
 			if f := stdinProvider.Stdin(); f != nil {
 				fmt.Fprint(f, promptText+"\n")
@@ -149,6 +149,8 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 	defer close(winchDone)
 	defer signal.Stop(sigCh)
 
+	r.handleResize(backend)
+
 	waitErr := backend.Wait()
 
 	close(reminderDone)
@@ -163,6 +165,8 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 	if _, err := logFH.WriteString(rawOutput); err != nil {
 		fmt.Fprintf(os.Stderr, "Warning: failed to write log: %v\n", err)
 	}
+
+	backend.Close()
 
 	if !opts.NoExitGuard {
 		fmt.Println("\n\nAgent session ended.")
@@ -192,8 +196,6 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 		return nil, fmt.Errorf("record end: %w", err)
 	}
 
-	backend.Close()
-
 	return &Result{
 		Stdout:    rawOutput,
 		Stderr:    "",
@@ -202,20 +204,25 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 		TokensOut: tokensOut,
 		Duration:  duration,
 		Error:     waitErr,
-	}, nil
+	}, waitErr
 }
 
-func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentName, phase string) []string {
-	switch agentName {
-	case "claude", "claude-code":
-		return []string{}
-	case "opencode":
-		return []string{}
-	case "aider":
-		return []string{}
-	default:
-		return []string{}
+func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentName, phase, promptText string) []string {
+	flag := agentCfg.PromptFlag
+	if flag == "" {
+		switch agentName {
+		case "opencode":
+			flag = "--prompt"
+		case "claude", "claude-code":
+			flag = "-p"
+		case "aider":
+			flag = "--message"
+		}
 	}
+	if flag != "" {
+		return []string{flag, promptText}
+	}
+	return []string{}
 }
 
 func (r *InteractiveRunner) handleResize(backend InteractiveBackend) {
@@ -289,10 +296,18 @@ func (r *InteractiveRunner) runTimebox(backend InteractiveBackend, timeout time.
 }
 
 func confirmExit() bool {
+	drainStdin()
 	fmt.Print("Proceed with steward wrap-up? [Y/n]: ")
 	var input string
 	fmt.Scanln(&input)
 	return strings.ToLower(input) != "n" && input != "no"
+}
+
+func drainStdin() {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return
+	}
+	syscall.Syscall(syscall.SYS_IOCTL, uintptr(os.Stdin.Fd()), 0x540B, 0)
 }
 
 type InteractiveOptions struct {

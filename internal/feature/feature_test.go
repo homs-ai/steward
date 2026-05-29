@@ -273,3 +273,30 @@ func TestDisplayName(t *testing.T) {
 		t.Errorf("expected 'legacy', got %q", f2.DisplayName())
 	}
 }
+
+func TestPhaseFile(t *testing.T) {
+	tests := []struct {
+		phase string
+		want  string
+	}{
+		{"brainstorm", "brainstorm.md"},
+		{"research", "research.md"},
+		{"analysis", "analysis.md"},
+		{"implement", "diff.md"},
+		{"test", "test_report.md"},
+	}
+	for _, tt := range tests {
+		got := PhaseFile(tt.phase)
+		if got != tt.want {
+			t.Errorf("PhaseFile(%q) = %q, want %q", tt.phase, got, tt.want)
+		}
+	}
+}
+
+func TestPhaseFileDefault(t *testing.T) {
+	got := PhaseFile("custom-phase")
+	want := "custom-phase.md"
+	if got != want {
+		t.Errorf("PhaseFile(%q) = %q, want %q", "custom-phase", got, want)
+	}
+}

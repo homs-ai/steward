@@ -60,9 +60,13 @@ func (pr *PhaseRunner) runPhase(ctx context.Context, feat *feature.Feature, phas
 		return err
 	}
 
-	promptText, err := prompts.PromptForPhase(pr.Config.StewardHome, phase)
-	if err != nil {
-		return fmt.Errorf("load prompt for %s: %w", phase, err)
+	promptText := batchPrompt
+	if promptText == "" {
+		var loadErr error
+		promptText, loadErr = prompts.PromptForPhase(pr.Config.StewardHome, phase)
+		if loadErr != nil {
+			return fmt.Errorf("load prompt for %s: %w", phase, loadErr)
+		}
 	}
 
 	interactivePrompt := pr.buildPhasePrompt(feat, phase, promptText)
@@ -70,7 +74,7 @@ func (pr *PhaseRunner) runPhase(ctx context.Context, feat *feature.Feature, phas
 	interactiveRunner := agent.NewInteractiveRunner(pr.Config)
 	interactiveRunner.ProjectRoot = pr.ProjectRoot
 
-	_, err = interactiveRunner.RunInteractive(ctx, feat, phase, interactivePrompt, agent.InteractiveOptions{})
+	_, err := interactiveRunner.RunInteractive(ctx, feat, phase, interactivePrompt, agent.InteractiveOptions{})
 	return err
 }
 

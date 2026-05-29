@@ -50,6 +50,7 @@ func runProjectInit(cmd *cobra.Command) error {
 		"claude-code": {
 			Cmd:            "claude",
 			Phases:         []string{"brainstorm", "research", "analysis", "implement", "test"},
+			PromptFlag:     "-p",
 			MaxInputTokens: 32000,
 			CostPer1KIn:    0.003,
 			CostPer1KOut:   0.015,
@@ -57,6 +58,7 @@ func runProjectInit(cmd *cobra.Command) error {
 		"opencode": {
 			Cmd:            "opencode",
 			Phases:         []string{"brainstorm", "research", "analysis", "implement", "test"},
+			PromptFlag:     "--prompt",
 			MaxInputTokens: 32000,
 			CostPer1KIn:    0.002,
 			CostPer1KOut:   0.010,
@@ -64,6 +66,7 @@ func runProjectInit(cmd *cobra.Command) error {
 		"aider": {
 			Cmd:            "aider",
 			Phases:         []string{"implement"},
+			PromptFlag:     "--message",
 			MaxInputTokens: 24000,
 			CostPer1KIn:    0.002,
 			CostPer1KOut:   0.008,

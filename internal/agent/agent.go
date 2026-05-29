@@ -116,7 +116,7 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 		fmt.Println(result.Stdout)
 	}
 
-	return result, nil
+	return result, err
 }
 
 func estimateTokens(text string) int {
