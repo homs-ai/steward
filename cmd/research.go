@@ -29,6 +29,7 @@ var researchCmd = &cobra.Command{
 
 		pr := workflow.NewPhaseRunner(cfg)
 		pr.ProjectRoot = currentProjectRoot
+		pr.Interactive = !batchMode
 		if err := pr.Research(ctx, feat); err != nil {
 			return fmt.Errorf("research: %w", err)
 		}

@@ -8,12 +8,13 @@ import (
 )
 
 type AgentConfig struct {
-	Cmd              string            `mapstructure:"cmd"`
-	Phases           []string          `mapstructure:"phases"`
-	MaxInputTokens   int               `mapstructure:"max_input_tokens"`
-	CostPer1KIn      float64           `mapstructure:"cost_per_1k_in"`
-	CostPer1KOut     float64           `mapstructure:"cost_per_1k_out"`
-	Env              map[string]string `mapstructure:"env"`
+	Cmd                string            `mapstructure:"cmd"`
+	Phases             []string          `mapstructure:"phases"`
+	MaxInputTokens     int               `mapstructure:"max_input_tokens"`
+	CostPer1KIn        float64           `mapstructure:"cost_per_1k_in"`
+	CostPer1KOut       float64           `mapstructure:"cost_per_1k_out"`
+	Env                map[string]string `mapstructure:"env"`
+	InteractiveBackend string            `mapstructure:"interactive_backend"`
 }
 
 type PhaseConfig struct {
