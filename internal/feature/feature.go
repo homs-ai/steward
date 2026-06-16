@@ -26,10 +26,12 @@ var RequiredFiles = []string{
 }
 
 type Feature struct {
-	Name    string
-	Project string
-	Dir     string
-	Created time.Time
+	Name       string
+	Project    string
+	Dir        string
+	Created    time.Time
+	BranchName string
+	BaseBranch string
 }
 
 func (f *Feature) DisplayName() string {
