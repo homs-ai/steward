@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -73,6 +74,145 @@ phases:
 	}
 	if !cfg.Phases["implement"].HardBlock {
 		t.Error("expected implement hard_block to be true")
+	}
+}
+
+func TestDefaultGitConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	if cfg.Git == nil {
+		t.Fatal("expected Git config to be non-nil")
+	}
+	if cfg.Git.AutoBranch != "prompt" {
+		t.Errorf("expected AutoBranch 'prompt', got %q", cfg.Git.AutoBranch)
+	}
+	if cfg.Git.StashOnDirty {
+		t.Error("expected StashOnDirty to be false")
+	}
+	if cfg.Git.BranchTemplate != "" {
+		t.Errorf("expected empty BranchTemplate, got %q", cfg.Git.BranchTemplate)
+	}
+	if cfg.Git.DefaultBranch != "" {
+		t.Errorf("expected empty DefaultBranch, got %q", cfg.Git.DefaultBranch)
+	}
+}
+
+func TestLoadConfigWithoutGitSection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.Git == nil {
+		t.Fatal("expected Git config to be non-nil (defaults)")
+	}
+	if cfg.Git.AutoBranch != "prompt" {
+		t.Errorf("expected AutoBranch 'prompt', got %q", cfg.Git.AutoBranch)
+	}
+}
+
+func TestLoadConfigWithGitSection(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configDir := filepath.Join(home, ".config", "steward")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	yamlContent := `
+git:
+  auto_branch: always
+  stash_on_dirty: true
+  branch_template: "feat/{{.Name}}"
+  default_branch: develop
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if cfg.Git.AutoBranch != "always" {
+		t.Errorf("expected AutoBranch 'always', got %q", cfg.Git.AutoBranch)
+	}
+	if !cfg.Git.StashOnDirty {
+		t.Error("expected StashOnDirty to be true")
+	}
+	if cfg.Git.BranchTemplate != "feat/{{.Name}}" {
+		t.Errorf("expected BranchTemplate 'feat/{{.Name}}', got %q", cfg.Git.BranchTemplate)
+	}
+	if cfg.Git.DefaultBranch != "develop" {
+		t.Errorf("expected DefaultBranch 'develop', got %q", cfg.Git.DefaultBranch)
+	}
+}
+
+func TestLoadConfigInvalidAutoBranch(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	configDir := filepath.Join(home, ".config", "steward")
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	yamlContent := `
+git:
+  auto_branch: invalid_value
+`
+	if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for invalid auto_branch value")
+	}
+}
+
+func TestSaveAndLoadWithGitConfig(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	cfg := DefaultConfig()
+	cfg.Git.AutoBranch = "never"
+	cfg.Git.StashOnDirty = true
+	cfg.Git.BranchTemplate = "feat/{{.Name}}"
+	cfg.Git.DefaultBranch = "main"
+
+	if err := Save(cfg); err != nil {
+		t.Fatalf("Save() returned error: %v", err)
+	}
+
+	// Verify the saved YAML contains git config
+	savedPath := filepath.Join(home, ".config", "steward", "config.yaml")
+	savedData, err := os.ReadFile(savedPath)
+	if err != nil {
+		t.Fatalf("failed to read saved config: %v", err)
+	}
+	if !strings.Contains(string(savedData), "auto_branch: never") {
+		t.Logf("Saved config content:\n%s", string(savedData))
+		t.Fatal("saved config does not contain 'auto_branch: never'")
+	}
+
+	loaded, err := Load()
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+	if loaded.Git.AutoBranch != "never" {
+		t.Errorf("expected AutoBranch 'never', got %q", loaded.Git.AutoBranch)
+	}
+	if !loaded.Git.StashOnDirty {
+		t.Error("expected StashOnDirty to be true")
+	}
+	if loaded.Git.BranchTemplate != "feat/{{.Name}}" {
+		t.Errorf("expected BranchTemplate 'feat/{{.Name}}', got %q", loaded.Git.BranchTemplate)
+	}
+	if loaded.Git.DefaultBranch != "main" {
+		t.Errorf("expected DefaultBranch 'main', got %q", loaded.Git.DefaultBranch)
 	}
 }
 

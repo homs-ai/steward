@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -24,17 +25,29 @@ type PhaseConfig struct {
 	HardBlock      bool   `mapstructure:"hard_block"`
 }
 
+type GitConfig struct {
+	AutoBranch     string `mapstructure:"auto_branch"`
+	BranchTemplate string `mapstructure:"branch_template"`
+	DefaultBranch  string `mapstructure:"default_branch"`
+	StashOnDirty   bool   `mapstructure:"stash_on_dirty"`
+}
+
 type Config struct {
-	StewardHome string                   `mapstructure:"steward_home"`
-	DefaultAgent string                 `mapstructure:"default_agent"`
-	Agents      map[string]*AgentConfig `mapstructure:"agents"`
-	Phases      map[string]*PhaseConfig `mapstructure:"phases"`
+	StewardHome  string                   `mapstructure:"steward_home"`
+	DefaultAgent string                   `mapstructure:"default_agent"`
+	Agents       map[string]*AgentConfig  `mapstructure:"agents"`
+	Phases       map[string]*PhaseConfig  `mapstructure:"phases"`
+	Git          *GitConfig               `mapstructure:"git"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
 		StewardHome:  filepath.Join(os.Getenv("HOME"), ".steward"),
 		DefaultAgent: "claude-code",
+		Git: &GitConfig{
+			AutoBranch:   "prompt",
+			StashOnDirty: false,
+		},
 		Agents: map[string]*AgentConfig{
 			"claude-code": {
 				Cmd:            "claude",
@@ -86,6 +99,7 @@ func Load() (*Config, error) {
 	v.SetDefault("default_agent", cfg.DefaultAgent)
 	v.SetDefault("agents", cfg.Agents)
 	v.SetDefault("phases", cfg.Phases)
+	v.SetDefault("git", cfg.Git)
 
 	if err := v.ReadInConfig(); err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -97,6 +111,17 @@ func Load() (*Config, error) {
 	if err := v.Unmarshal(cfg); err != nil {
 		return nil, err
 	}
+
+	if cfg.Git != nil {
+		switch cfg.Git.AutoBranch {
+		case "prompt", "always", "never":
+		case "":
+			cfg.Git.AutoBranch = "prompt"
+		default:
+			return nil, fmt.Errorf("git.auto_branch must be one of: prompt, always, never (got %q)", cfg.Git.AutoBranch)
+		}
+	}
+
 	return cfg, nil
 }
 
@@ -115,6 +140,13 @@ func Save(cfg *Config) error {
 	v.Set("default_agent", cfg.DefaultAgent)
 	v.Set("agents", cfg.Agents)
 	v.Set("phases", cfg.Phases)
+
+	if cfg.Git != nil {
+		v.Set("git.auto_branch", cfg.Git.AutoBranch)
+		v.Set("git.branch_template", cfg.Git.BranchTemplate)
+		v.Set("git.default_branch", cfg.Git.DefaultBranch)
+		v.Set("git.stash_on_dirty", cfg.Git.StashOnDirty)
+	}
 
 	return v.WriteConfigAs(filepath.Join(configDir, "config.yaml"))
 }
