@@ -26,10 +26,12 @@ var RequiredFiles = []string{
 }
 
 type Feature struct {
-	Name    string
-	Project string
-	Dir     string
-	Created time.Time
+	Name       string
+	Project    string
+	Dir        string
+	Created    time.Time
+	BranchName string
+	BaseBranch string
 }
 
 func (f *Feature) DisplayName() string {
@@ -74,12 +76,16 @@ func Open(cfg *config.Config, project, name string) (*Feature, error) {
 		return nil, err
 	}
 
-	return &Feature{
+	f := &Feature{
 		Name:    name,
 		Project: project,
 		Dir:     dir,
 		Created: info.ModTime(),
-	}, nil
+	}
+	if err := f.LoadMetadata(); err != nil {
+		return nil, err
+	}
+	return f, nil
 }
 
 func (f *Feature) ReadFile(filename string) (string, error) {
