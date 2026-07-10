@@ -214,7 +214,7 @@ func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentNa
 		case "opencode":
 			flag = "--prompt"
 		case "claude", "claude-code":
-			flag = "-p"
+			flag = ""
 		case "aider":
 			flag = "--message"
 		}
@@ -222,7 +222,7 @@ func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentNa
 	if flag != "" {
 		return []string{flag, promptText}
 	}
-	return []string{}
+	return []string{promptText}
 }
 
 func (r *InteractiveRunner) handleResize(backend InteractiveBackend) {
