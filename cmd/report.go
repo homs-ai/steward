@@ -13,7 +13,7 @@ var reportCmd = &cobra.Command{
 	Use:   "report <name>",
 	Short: "Show full build report for a feature",
 	Long:  `Display the complete build report including requirements, analysis, and test results.`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		feat, err := feature.Open(cfg, currentProject, name)
@@ -35,4 +35,8 @@ var reportCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func init() {
+	reportCmd.ValidArgsFunction = completeFeatureName
 }

@@ -46,3 +46,7 @@ Phase 2: Captures diff and generates report`,
 		return nil
 	},
 }
+
+func init() {
+	implementCmd.ValidArgsFunction = completeFeatureName
+}

@@ -44,3 +44,7 @@ Phase 2: Executes tests and generates test report`,
 		return nil
 	},
 }
+
+func init() {
+	testCmd.ValidArgsFunction = completeFeatureName
+}
