@@ -58,5 +58,6 @@ var metricsCmd = &cobra.Command{
 }
 
 func init() {
+	metricsCmd.ValidArgsFunction = completeFeatureName
 	metricsCmd.Flags().BoolVarP(&metricsAll, "all", "a", false, "Show metrics across all projects")
 }

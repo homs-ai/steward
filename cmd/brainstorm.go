@@ -56,5 +56,6 @@ var brainstormCmd = &cobra.Command{
 }
 
 func init() {
+	brainstormCmd.ValidArgsFunction = completeFeatureName
 	brainstormCmd.Flags().StringVarP(&brainstormInput, "input", "i", "", "Feature description (prompts interactively if empty)")
 }

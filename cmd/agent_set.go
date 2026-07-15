@@ -53,3 +53,7 @@ Example: steward agent set implement aider
 		return nil
 	},
 }
+
+func init() {
+	agentSetCmd.ValidArgsFunction = completeAgentSetArgs
+}

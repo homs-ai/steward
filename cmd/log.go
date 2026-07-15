@@ -15,7 +15,7 @@ var logCmd = &cobra.Command{
 	Use:   "log <name>",
 	Short: "Show execution timeline for a feature",
 	Long:  `Display a timeline of all phase executions with timestamps and duration.`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		feat, err := feature.Open(cfg, currentProject, name)
@@ -69,4 +69,8 @@ var logCmd = &cobra.Command{
 		}
 		return nil
 	},
+}
+
+func init() {
+	logCmd.ValidArgsFunction = completeFeatureName
 }

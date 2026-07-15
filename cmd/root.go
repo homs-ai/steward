@@ -69,6 +69,8 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringP("project", "p", "", "Project name (default: basename of current directory)")
 	rootCmd.PersistentFlags().BoolVarP(&batchMode, "batch", "b", false, "Run in batch mode (non-interactive)")
+	rootCmd.PersistentFlags().Lookup("project").Annotations = nil
+	rootCmd.RegisterFlagCompletionFunc("project", completeProjectName)
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(brainstormCmd)
 	rootCmd.AddCommand(researchCmd)

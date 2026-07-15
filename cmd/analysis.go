@@ -16,7 +16,7 @@ var analysisCmd = &cobra.Command{
 	Use:   "analysis <name>",
 	Short: "Convergent thinking phase — structured implementation plan",
 	Long:  `Distill brainstorm and research into a concrete, actionable plan with architecture, scope, and implementation blocks.`,
-	Args:  cobra.ExactArgs(1),
+	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		feat, err := feature.Open(cfg, currentProject, name)
@@ -42,4 +42,8 @@ var analysisCmd = &cobra.Command{
 		workflow.RequireRating(feat, "analysis")
 		return nil
 	},
+}
+
+func init() {
+	analysisCmd.ValidArgsFunction = completeFeatureName
 }
