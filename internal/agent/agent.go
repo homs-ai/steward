@@ -27,6 +27,9 @@ type Result struct {
 type Runner struct {
 	Config *config.Config
 	Stdout bool
+	// Manual, when true, opts back into agent permission prompting instead of
+	// the default auto (skip-permissions) behavior.
+	Manual bool
 }
 
 func NewRunner(cfg *config.Config) *Runner {
@@ -58,9 +61,15 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 		return nil, fmt.Errorf("record start: %w", err)
 	}
 
-	args := []string{"run", "--dangerously-skip-permissions", prompt}
+	permArgs := PermissionArgs(agentCfg, r.Manual)
+	var args []string
 	if agentCfg.Cmd == "claude" {
-		args = []string{"--dangerously-skip-permissions", prompt}
+		args = append(args, permArgs...)
+		args = append(args, prompt)
+	} else {
+		args = append(args, "run")
+		args = append(args, permArgs...)
+		args = append(args, prompt)
 	}
 	cmd := exec.CommandContext(ctx, agentCfg.Cmd, args...)
 
@@ -117,6 +126,32 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 	}
 
 	return result, err
+}
+
+// PermissionArgs returns the CLI arguments that control an agent's permission
+// prompting behavior. It is the single source of truth shared by both the
+// batch (Runner.Run) and interactive (InteractiveRunner.buildAgentArgs) paths
+// so the two never drift.
+//
+// Default (manual == false) is "auto": inject the agent's skip-permissions flag
+// so the pipeline runs unattended. When manual is true, or the agent has no
+// configured skip-permissions flag, no flag is injected and the agent prompts
+// normally.
+func PermissionArgs(agentCfg *config.AgentConfig, manual bool) []string {
+	if manual || agentCfg == nil {
+		return nil
+	}
+
+	flag := agentCfg.SkipPermissionsFlag
+	if flag == "" && agentCfg.Cmd == "claude" {
+		// Backward-compat: config files predating skip_permissions_flag still
+		// get the historical claude default.
+		flag = "--dangerously-skip-permissions"
+	}
+	if flag == "" {
+		return nil
+	}
+	return []string{flag}
 }
 
 func estimateTokens(text string) int {

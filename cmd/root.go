@@ -17,6 +17,7 @@ var (
 	currentProject     string
 	currentProjectRoot string
 	batchMode          bool
+	manualMode         bool
 )
 
 var rootCmd = &cobra.Command{
@@ -89,6 +90,7 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringP("project", "p", "", "Project name (default: basename of current directory)")
 	rootCmd.PersistentFlags().BoolVarP(&batchMode, "batch", "b", false, "Run in batch mode (non-interactive)")
+	rootCmd.PersistentFlags().BoolVar(&manualMode, "manual", false, "Require agent permission prompts (default: auto — dangerously skip permissions)")
 	rootCmd.PersistentFlags().Lookup("project").Annotations = nil
 	rootCmd.RegisterFlagCompletionFunc("project", completeProjectName)
 	rootCmd.AddCommand(initCmd)

@@ -30,6 +30,7 @@ var analysisCmd = &cobra.Command{
 		pr := workflow.NewPhaseRunner(cfg)
 		pr.ProjectRoot = currentProjectRoot
 		pr.Interactive = !batchMode
+		pr.Manual = manualMode
 		if err := pr.Analysis(ctx, feat); err != nil {
 			return fmt.Errorf("analysis: %w", err)
 		}

@@ -31,6 +31,9 @@ type InteractiveRunner struct {
 	Backend     InteractiveBackend
 	ProjectRoot string
 	LogDir      string
+	// Manual, when true, opts back into agent permission prompting instead of
+	// the default auto (skip-permissions) behavior.
+	Manual bool
 }
 
 func NewInteractiveRunner(cfg *config.Config) *InteractiveRunner {
@@ -208,6 +211,10 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 }
 
 func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentName, phase, promptText string) []string {
+	// Default to auto (skip permissions); --manual opts back into prompting.
+	// Shared with the batch path via agent.PermissionArgs so the two never drift.
+	args := PermissionArgs(agentCfg, r.Manual)
+
 	flag := agentCfg.PromptFlag
 	if flag == "" {
 		switch agentName {
@@ -220,9 +227,10 @@ func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentNa
 		}
 	}
 	if flag != "" {
-		return []string{flag, promptText}
+		args = append(args, flag)
 	}
-	return []string{promptText}
+	args = append(args, promptText)
+	return args
 }
 
 func (r *InteractiveRunner) handleResize(backend InteractiveBackend) {

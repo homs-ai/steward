@@ -41,6 +41,7 @@ var brainstormCmd = &cobra.Command{
 		pr := workflow.NewPhaseRunner(cfg)
 		pr.ProjectRoot = currentProjectRoot
 		pr.Interactive = !batchMode
+		pr.Manual = manualMode
 		if err := pr.Brainstorm(ctx, feat, brainstormInput); err != nil {
 			return fmt.Errorf("brainstorm: %w", err)
 		}

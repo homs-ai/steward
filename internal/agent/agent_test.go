@@ -97,6 +97,86 @@ func TestBuildAgentArgs(t *testing.T) {
 	}
 }
 
+func TestPermissionArgs(t *testing.T) {
+	tests := []struct {
+		name     string
+		agentCfg *config.AgentConfig
+		manual   bool
+		want     []string
+	}{
+		{
+			name:     "auto uses configured skip flag",
+			agentCfg: &config.AgentConfig{Cmd: "claude", SkipPermissionsFlag: "--dangerously-skip-permissions"},
+			manual:   false,
+			want:     []string{"--dangerously-skip-permissions"},
+		},
+		{
+			name:     "manual injects nothing",
+			agentCfg: &config.AgentConfig{Cmd: "claude", SkipPermissionsFlag: "--dangerously-skip-permissions"},
+			manual:   true,
+			want:     nil,
+		},
+		{
+			name:     "claude backward-compat default when flag unset",
+			agentCfg: &config.AgentConfig{Cmd: "claude"},
+			manual:   false,
+			want:     []string{"--dangerously-skip-permissions"},
+		},
+		{
+			name:     "aider skip flag",
+			agentCfg: &config.AgentConfig{Cmd: "aider", SkipPermissionsFlag: "--yes-always"},
+			manual:   false,
+			want:     []string{"--yes-always"},
+		},
+		{
+			name:     "no flag configured returns nil",
+			agentCfg: &config.AgentConfig{Cmd: "opencode"},
+			manual:   false,
+			want:     nil,
+		},
+		{
+			name:     "nil config returns nil",
+			agentCfg: nil,
+			manual:   false,
+			want:     nil,
+		},
+	}
+
+	for _, tt := range tests {
+		got := PermissionArgs(tt.agentCfg, tt.manual)
+		if len(got) != len(tt.want) {
+			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
+			continue
+		}
+		for i := range got {
+			if got[i] != tt.want[i] {
+				t.Errorf("%s: arg %d got %q, want %q", tt.name, i, got[i], tt.want[i])
+			}
+		}
+	}
+}
+
+func TestBuildAgentArgsManualMode(t *testing.T) {
+	promptText := "hello"
+	agentCfg := &config.AgentConfig{Cmd: "claude", PromptFlag: "-p", SkipPermissionsFlag: "--dangerously-skip-permissions"}
+
+	// Auto (default): skip-permissions flag present.
+	auto := &InteractiveRunner{Config: &config.Config{}, Manual: false}
+	autoArgs := auto.buildAgentArgs(agentCfg, "claude-code", "brainstorm", promptText)
+	if len(autoArgs) == 0 || autoArgs[0] != "--dangerously-skip-permissions" {
+		t.Errorf("auto: expected skip-permissions flag first, got %v", autoArgs)
+	}
+
+	// Manual: no skip-permissions flag.
+	manual := &InteractiveRunner{Config: &config.Config{}, Manual: true}
+	manualArgs := manual.buildAgentArgs(agentCfg, "claude-code", "brainstorm", promptText)
+	for _, a := range manualArgs {
+		if a == "--dangerously-skip-permissions" {
+			t.Errorf("manual: did not expect skip-permissions flag, got %v", manualArgs)
+		}
+	}
+}
+
 func TestNewInteractiveRunner(t *testing.T) {
 	cfg := &config.Config{StewardHome: "/tmp/test-steward"}
 	r := NewInteractiveRunner(cfg)
