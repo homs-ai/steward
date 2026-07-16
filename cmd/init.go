@@ -23,8 +23,22 @@ With a feature name, creates a new feature with all required tracking files.`,
 		if len(args) == 0 {
 			return runProjectInit(cmd)
 		}
-		return runFeatureInit(args[0])
+		parallel, _ := cmd.Flags().GetBool("parallel")
+		return runFeatureInit(args[0], parallel)
 	},
+}
+
+func init() {
+	initCmd.Flags().Bool("parallel", false, "Create an ephemeral sibling git worktree for parallel development")
+	initCmd.Flags().Bool("worktree", false, "Alias for --parallel")
+	initCmd.Flags().MarkHidden("worktree")
+	// Treat --worktree as an alias: if it is set, --parallel takes effect too.
+	initCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if wt, _ := cmd.Flags().GetBool("worktree"); wt {
+			cmd.Flags().Set("parallel", "true")
+		}
+		return nil
+	}
 }
 
 func runProjectInit(cmd *cobra.Command) error {
@@ -230,7 +244,11 @@ func runGitBranchSetup(gr *git.Runner, action branchAction, featureName, branchN
 	}
 }
 
-func runFeatureInit(name string) error {
+func runFeatureInit(name string, parallel bool) error {
+	if parallel {
+		return runParallelFeatureInit(name)
+	}
+
 	var branchCreated bool
 	var branchName string
 	var baseBranch string
@@ -286,6 +304,72 @@ func runFeatureInit(name string) error {
 	if branchCreated {
 		fmt.Printf("  Branch: %s (from %s)\n", branchName, baseBranch)
 	}
+	fmt.Printf("Run 'steward brainstorm %s' to explore ideas\n", name)
+
+	return nil
+}
+
+// runParallelFeatureInit creates an ephemeral sibling worktree for the feature
+// so it can be developed alongside whatever occupies the main worktree.
+func runParallelFeatureInit(name string) error {
+	if _, err := exec.LookPath("git"); err != nil {
+		return fmt.Errorf("--parallel requires git, which was not found in PATH")
+	}
+
+	gr := &git.Runner{Dir: currentProjectRoot}
+	if !gr.IsRepo() {
+		return fmt.Errorf("--parallel requires a git repository; the current directory is not one")
+	}
+	if gr.IsBare() {
+		return fmt.Errorf("--parallel is not supported in a bare repository")
+	}
+
+	root, err := repoRoot(gr)
+	if err != nil {
+		return fmt.Errorf("resolve repository root: %w", err)
+	}
+
+	branch := git.SanitizeBranchName(name)
+
+	// Guard the one-branch-one-worktree rule.
+	if inUse, path, err := branchCheckedOut(gr, branch); err != nil {
+		return fmt.Errorf("inspect worktrees: %w", err)
+	} else if inUse {
+		return fmt.Errorf("branch %q is already checked out at %s", branch, path)
+	}
+	if exists, err := gr.BranchExists(branch); err != nil {
+		return fmt.Errorf("check branch exists: %w", err)
+	} else if exists {
+		return fmt.Errorf("branch %q already exists; use 'steward worktree add %s' to revive it", branch, name)
+	}
+
+	wtPath := worktreeSiblingPath(root, name)
+	if _, err := os.Stat(wtPath); err == nil {
+		return fmt.Errorf("worktree path %s already exists; remove it or choose a different feature name", wtPath)
+	}
+
+	baseBranch, _ := gr.CurrentBranch()
+
+	if err := gr.WorktreeAdd(wtPath, branch, true); err != nil {
+		return fmt.Errorf("create worktree: %w", err)
+	}
+
+	f, err := feature.Init(cfg, currentProject, name)
+	if err != nil {
+		return fmt.Errorf("init feature: %w", err)
+	}
+	f.BranchName = branch
+	f.BaseBranch = baseBranch
+	f.WorktreePath = wtPath
+	if err := f.SaveMetadata(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save feature metadata: %v\n", err)
+	}
+
+	fmt.Printf("Feature %q initialized at %s\n", f.DisplayName(), f.Dir)
+	fmt.Printf("  Branch:   %s (from %s)\n", branch, baseBranch)
+	fmt.Printf("  Worktree: %s\n", wtPath)
+	fmt.Println()
+	fmt.Printf("  cd %s\n", wtPath)
 	fmt.Printf("Run 'steward brainstorm %s' to explore ideas\n", name)
 
 	return nil
