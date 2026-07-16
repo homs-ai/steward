@@ -8,8 +8,9 @@ import (
 )
 
 type FeatureMetadata struct {
-	BranchName string `yaml:"branch_name,omitempty"`
-	BaseBranch string `yaml:"base_branch,omitempty"`
+	BranchName   string `yaml:"branch_name,omitempty"`
+	BaseBranch   string `yaml:"base_branch,omitempty"`
+	WorktreePath string `yaml:"worktree_path,omitempty"`
 }
 
 func (f *Feature) MetadataFile() string {
@@ -18,8 +19,9 @@ func (f *Feature) MetadataFile() string {
 
 func (f *Feature) SaveMetadata() error {
 	meta := &FeatureMetadata{
-		BranchName: f.BranchName,
-		BaseBranch: f.BaseBranch,
+		BranchName:   f.BranchName,
+		BaseBranch:   f.BaseBranch,
+		WorktreePath: f.WorktreePath,
 	}
 	data, err := yaml.Marshal(meta)
 	if err != nil {
@@ -42,6 +44,7 @@ func (f *Feature) LoadMetadata() error {
 	}
 	f.BranchName = meta.BranchName
 	f.BaseBranch = meta.BaseBranch
+	f.WorktreePath = meta.WorktreePath
 	return nil
 }
 

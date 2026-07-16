@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/k/steward/internal/config"
+	"github.com/k/steward/internal/git"
 )
 
 var (
@@ -48,7 +49,7 @@ You steer, agents execute. Every phase is tracked and auditable.`,
 			return err
 		}
 		if project == "" {
-			project = filepath.Base(cwd)
+			project, _ = resolveProject(cwd)
 		}
 		currentProject = project
 
@@ -57,6 +58,25 @@ You steer, agents execute. Every phase is tracked and auditable.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		cmd.Help()
 	},
+}
+
+// resolveProject derives the steward project name and stable identity key for a
+// working directory. When cwd is inside a non-bare git repository, the identity
+// key is the canonicalized common git dir (invariant across the main worktree,
+// secondary worktrees, and subdirectories) and the name is the repo-root
+// basename. This is what collapses ephemeral worktrees onto the same steward
+// project. Falls back to the cwd basename when git is absent or the repo is bare.
+func resolveProject(cwd string) (name, key string) {
+	gr := &git.Runner{Dir: cwd}
+	if gr.IsRepo() && !gr.IsBare() {
+		common, err := gr.CommonDir()
+		if err == nil {
+			key = common
+			name = filepath.Base(filepath.Dir(common))
+			return name, key
+		}
+	}
+	return filepath.Base(cwd), cwd
 }
 
 func Execute() {

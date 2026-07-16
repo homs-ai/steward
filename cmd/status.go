@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
@@ -20,6 +22,7 @@ var statusCmd = &cobra.Command{
 		project := ""
 		if !statusAll {
 			project = currentProject
+			warnMovedProject()
 		}
 
 		features, err := feature.ListFeatures(cfg, project)
@@ -72,6 +75,27 @@ var statusCmd = &cobra.Command{
 		fmt.Println(strings.Repeat("─", 90))
 		return nil
 	},
+}
+
+// warnMovedProject warns when the git-derived project name differs from an
+// on-disk project folder that matches the current directory basename. This
+// surfaces the "moved project" case (e.g. running from a subdirectory or after a
+// repo-dir rename) where features may live under a different project folder.
+func warnMovedProject() {
+	base := filepath.Base(currentProjectRoot)
+	if base == "" || base == currentProject {
+		return
+	}
+	// Only warn if an on-disk project folder for the basename actually exists,
+	// i.e. steward state was created under the old (basename) identity.
+	oldDir := filepath.Join(cfg.StewardHome, base)
+	if info, err := os.Stat(oldDir); err == nil && info.IsDir() {
+		fmt.Fprintf(os.Stderr,
+			"Note: git-derived project %q differs from on-disk project folder %q.\n"+
+				"      Features created before repo-identity resolution may live under %q.\n"+
+				"      Use --project %s to view them.\n\n",
+			currentProject, base, base, base)
+	}
 }
 
 func init() {
