@@ -14,18 +14,19 @@ import (
 )
 
 type PhaseTelemetry struct {
-	StartedAt    string `yaml:"started_at,omitempty"`
-	CompletedAt  string `yaml:"completed_at,omitempty"`
-	Agent        string `yaml:"agent"`
-	Model        string `yaml:"model,omitempty"`
-	TokensIn     int    `yaml:"tokens_in"`
-	TokensOut    int    `yaml:"tokens_out"`
-	DurationSec  int    `yaml:"duration_sec"`
-	Iterations   int    `yaml:"iterations"`
-	ExitCode     int    `yaml:"exit_code"`
-	Retries      int    `yaml:"retries"`
-	HumanRating  int    `yaml:"human_rating,omitempty"`
-	Error        string `yaml:"error,omitempty"`
+	StartedAt      string `yaml:"started_at,omitempty"`
+	CompletedAt    string `yaml:"completed_at,omitempty"`
+	Agent          string `yaml:"agent"`
+	Model          string `yaml:"model,omitempty"`
+	PermissionMode string `yaml:"permission_mode,omitempty"`
+	TokensIn       int    `yaml:"tokens_in"`
+	TokensOut      int    `yaml:"tokens_out"`
+	DurationSec    int    `yaml:"duration_sec"`
+	Iterations     int    `yaml:"iterations"`
+	ExitCode       int    `yaml:"exit_code"`
+	Retries        int    `yaml:"retries"`
+	HumanRating    int    `yaml:"human_rating,omitempty"`
+	Error          string `yaml:"error,omitempty"`
 }
 
 type FeatureTelemetry struct {
@@ -76,7 +77,7 @@ func Save(feat *feature.Feature, ft *FeatureTelemetry) error {
 	return os.WriteFile(feat.TelemetryFile(), data, 0644)
 }
 
-func RecordPhaseStart(feat *feature.Feature, phase, agent string) error {
+func RecordPhaseStart(feat *feature.Feature, phase, agent, permissionMode string) error {
 	ft, err := Load(feat)
 	if err != nil {
 		return err
@@ -86,6 +87,7 @@ func RecordPhaseStart(feat *feature.Feature, phase, agent string) error {
 		ft.Phases[phase] = &PhaseTelemetry{}
 	}
 	ft.Phases[phase].Agent = agent
+	ft.Phases[phase].PermissionMode = permissionMode
 	ft.Phases[phase].StartedAt = time.Now().UTC().Format(time.RFC3339)
 
 	return Save(feat, ft)

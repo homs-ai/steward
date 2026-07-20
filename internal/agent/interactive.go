@@ -31,8 +31,8 @@ type InteractiveRunner struct {
 	Backend     InteractiveBackend
 	ProjectRoot string
 	LogDir      string
-	// Manual, when true, opts back into agent permission prompting instead of
-	// the default auto (skip-permissions) behavior.
+	// Manual, when true, requests manual permission mode (no skip flag). The
+	// STEWARD_FORCE_MANUAL kill-switch can force manual regardless of this value.
 	Manual bool
 }
 
@@ -77,7 +77,9 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 	}
 	defer logFH.Close()
 
-	if err := telemetry.RecordPhaseStart(feat, phase, agentName); err != nil {
+	PrintPermissionBanner(r.Manual)
+
+	if err := telemetry.RecordPhaseStart(feat, phase, agentName, string(EffectiveMode(r.Manual))); err != nil {
 		return nil, fmt.Errorf("record start: %w", err)
 	}
 
@@ -211,26 +213,27 @@ func (r *InteractiveRunner) RunInteractive(ctx context.Context, feat *feature.Fe
 }
 
 func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentName, phase, promptText string) []string {
-	// Default to auto (skip permissions); --manual opts back into prompting.
-	// Shared with the batch path via agent.PermissionArgs so the two never drift.
-	args := PermissionArgs(agentCfg, r.Manual)
-
+	// The prompt flag here governs an *interactive* PTY session, which is a
+	// different mode from the batch path. agentCfg.PromptFlag holds the batch
+	// (non-interactive) flag — e.g. claude's -p/--print, which runs a one-shot
+	// and exits immediately, breaking the interactive session. So claude and
+	// opencode take the prompt positionally regardless of the configured flag.
 	flag := agentCfg.PromptFlag
-	if flag == "" {
-		switch agentName {
-		case "opencode":
-			flag = "--prompt"
-		case "claude", "claude-code":
-			flag = ""
-		case "aider":
+	switch agentName {
+	case "claude", "claude-code", "opencode":
+		flag = ""
+	case "aider":
+		if flag == "" {
 			flag = "--message"
 		}
 	}
+
+	// Permission flags must precede the positional prompt so they parse as options.
+	args := PermissionArgs(agentCfg, r.Manual)
 	if flag != "" {
-		args = append(args, flag)
+		return append(args, flag, promptText)
 	}
-	args = append(args, promptText)
-	return args
+	return append(args, promptText)
 }
 
 func (r *InteractiveRunner) handleResize(backend InteractiveBackend) {

@@ -27,7 +27,15 @@ var rootCmd = &cobra.Command{
 It guides features through a structured lifecycle:
 init → brainstorm → research → analysis → implement → test
 
-You steer, agents execute. Every phase is tracked and auditable.`,
+You steer, agents execute. Every phase is tracked and auditable.
+
+Permission modes:
+  By default steward runs agents in AUTO mode, passing each agent's
+  "skip permissions" flag (e.g. claude's --dangerously-skip-permissions).
+  This lets agents run shell commands — including destructive ones —
+  unattended. Pass --manual to require the agent to prompt for approval.
+  Set STEWARD_FORCE_MANUAL=1 to force manual mode regardless of --manual;
+  this kill-switch is owned by steward and cannot be delegated to an agent.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if cmd.Name() == "help" || cmd.Name() == "completion" {
 			return nil
@@ -90,7 +98,7 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().StringP("project", "p", "", "Project name (default: basename of current directory)")
 	rootCmd.PersistentFlags().BoolVarP(&batchMode, "batch", "b", false, "Run in batch mode (non-interactive)")
-	rootCmd.PersistentFlags().BoolVar(&manualMode, "manual", false, "Require agent permission prompts (default: auto — dangerously skip permissions)")
+	rootCmd.PersistentFlags().BoolVar(&manualMode, "manual", false, "Require the agent to prompt for permission (default: auto-skip; overridden by STEWARD_FORCE_MANUAL)")
 	rootCmd.PersistentFlags().Lookup("project").Annotations = nil
 	rootCmd.RegisterFlagCompletionFunc("project", completeProjectName)
 	rootCmd.AddCommand(initCmd)

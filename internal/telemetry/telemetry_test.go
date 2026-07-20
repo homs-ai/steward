@@ -40,7 +40,7 @@ func TestLoadEmptyTelemetry(t *testing.T) {
 func TestRecordPhaseStart(t *testing.T) {
 	_, f := setupTest(t)
 
-	if err := RecordPhaseStart(f, "brainstorm", "claude-code"); err != nil {
+	if err := RecordPhaseStart(f, "brainstorm", "claude-code", "auto"); err != nil {
 		t.Fatalf("RecordPhaseStart() returned error: %v", err)
 	}
 
@@ -64,7 +64,7 @@ func TestRecordPhaseStart(t *testing.T) {
 func TestRecordPhaseEnd(t *testing.T) {
 	_, f := setupTest(t)
 
-	if err := RecordPhaseStart(f, "implement", "aider"); err != nil {
+	if err := RecordPhaseStart(f, "implement", "aider", "auto"); err != nil {
 		t.Fatalf("RecordPhaseStart() returned error: %v", err)
 	}
 
@@ -95,7 +95,7 @@ func TestRecordPhaseEnd(t *testing.T) {
 func TestRecordPhaseEndWithError(t *testing.T) {
 	_, f := setupTest(t)
 
-	RecordPhaseStart(f, "test", "claude-code")
+	RecordPhaseStart(f, "test", "claude-code", "auto")
 	if err := RecordPhaseEnd(f, "test", 1000, 500, 1, 2, "agent crashed"); err != nil {
 		t.Fatalf("RecordPhaseEnd() returned error: %v", err)
 	}
@@ -116,7 +116,7 @@ func TestRecordPhaseEndWithError(t *testing.T) {
 func TestRecordRating(t *testing.T) {
 	_, f := setupTest(t)
 
-	RecordPhaseStart(f, "brainstorm", "claude-code")
+	RecordPhaseStart(f, "brainstorm", "claude-code", "auto")
 	RecordPhaseEnd(f, "brainstorm", 5000, 2000, 0, 0, "")
 
 	if err := RecordRating(f, "brainstorm", 4); err != nil {

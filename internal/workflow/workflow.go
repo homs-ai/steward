@@ -17,8 +17,8 @@ type PhaseRunner struct {
 	Runner      *agent.Runner
 	ProjectRoot string
 	Interactive bool
-	// Manual, when true, opts back into agent permission prompting instead of
-	// the default auto (skip-permissions) behavior.
+	// Manual requests manual permission mode across both runners. The
+	// STEWARD_FORCE_MANUAL kill-switch can force manual regardless of this value.
 	Manual bool
 }
 

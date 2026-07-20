@@ -27,8 +27,8 @@ type Result struct {
 type Runner struct {
 	Config *config.Config
 	Stdout bool
-	// Manual, when true, opts back into agent permission prompting instead of
-	// the default auto (skip-permissions) behavior.
+	// Manual, when true, requests manual permission mode (no skip flag). The
+	// STEWARD_FORCE_MANUAL kill-switch can force manual regardless of this value.
 	Manual bool
 }
 
@@ -57,20 +57,13 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 		return nil, fmt.Errorf("agent %q not configured", agentName)
 	}
 
-	if err := telemetry.RecordPhaseStart(feat, phase, agentName); err != nil {
+	PrintPermissionBanner(r.Manual)
+
+	if err := telemetry.RecordPhaseStart(feat, phase, agentName, string(EffectiveMode(r.Manual))); err != nil {
 		return nil, fmt.Errorf("record start: %w", err)
 	}
 
-	permArgs := PermissionArgs(agentCfg, r.Manual)
-	var args []string
-	if agentCfg.Cmd == "claude" {
-		args = append(args, permArgs...)
-		args = append(args, prompt)
-	} else {
-		args = append(args, "run")
-		args = append(args, permArgs...)
-		args = append(args, prompt)
-	}
+	args := buildBatchArgs(agentCfg, prompt, r.Manual)
 	cmd := exec.CommandContext(ctx, agentCfg.Cmd, args...)
 
 	workDir := projectRoot
@@ -128,30 +121,18 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 	return result, err
 }
 
-// PermissionArgs returns the CLI arguments that control an agent's permission
-// prompting behavior. It is the single source of truth shared by both the
-// batch (Runner.Run) and interactive (InteractiveRunner.buildAgentArgs) paths
-// so the two never drift.
-//
-// Default (manual == false) is "auto": inject the agent's skip-permissions flag
-// so the pipeline runs unattended. When manual is true, or the agent has no
-// configured skip-permissions flag, no flag is injected and the agent prompts
-// normally.
-func PermissionArgs(agentCfg *config.AgentConfig, manual bool) []string {
-	if manual || agentCfg == nil {
-		return nil
+// buildBatchArgs constructs the argv for a non-interactive agent invocation.
+// Permission flags are placed before the positional prompt so they are parsed
+// as options. The "run" subcommand is used for every agent except claude, which
+// takes the prompt directly.
+func buildBatchArgs(agentCfg *config.AgentConfig, prompt string, manual bool) []string {
+	var args []string
+	if agentCfg.Cmd != "claude" {
+		args = append(args, "run")
 	}
-
-	flag := agentCfg.SkipPermissionsFlag
-	if flag == "" && agentCfg.Cmd == "claude" {
-		// Backward-compat: config files predating skip_permissions_flag still
-		// get the historical claude default.
-		flag = "--dangerously-skip-permissions"
-	}
-	if flag == "" {
-		return nil
-	}
-	return []string{flag}
+	args = append(args, PermissionArgs(agentCfg, manual)...)
+	args = append(args, prompt)
+	return args
 }
 
 func estimateTokens(text string) int {

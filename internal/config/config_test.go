@@ -20,6 +20,30 @@ func TestDefaultConfig(t *testing.T) {
 	}
 }
 
+func TestDefaultConfigSkipPermsFlags(t *testing.T) {
+	cfg := DefaultConfig()
+
+	wantSkip := map[string]string{
+		"claude-code": "--dangerously-skip-permissions",
+		"opencode":    "--auto",
+		"aider":       "--yes-always",
+	}
+	for name, want := range wantSkip {
+		ac, ok := cfg.Agents[name]
+		if !ok {
+			t.Fatalf("expected agent %q", name)
+		}
+		if ac.SkipPermsFlag != want {
+			t.Errorf("%s: expected skip_perms_flag %q, got %q", name, want, ac.SkipPermsFlag)
+		}
+	}
+
+	// opencode takes its prompt positionally, not via a flag.
+	if got := cfg.Agents["opencode"].PromptFlag; got != "" {
+		t.Errorf("opencode: expected empty prompt_flag (positional), got %q", got)
+	}
+}
+
 func TestLoadDefaultConfig(t *testing.T) {
 	// Ensure no config file exists in temp home
 	home := t.TempDir()
