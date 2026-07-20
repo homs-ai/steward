@@ -27,6 +27,9 @@ type Result struct {
 type Runner struct {
 	Config *config.Config
 	Stdout bool
+	// Manual, when true, requests manual permission mode (no skip flag). The
+	// STEWARD_FORCE_MANUAL kill-switch can force manual regardless of this value.
+	Manual bool
 }
 
 func NewRunner(cfg *config.Config) *Runner {
@@ -54,14 +57,13 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 		return nil, fmt.Errorf("agent %q not configured", agentName)
 	}
 
-	if err := telemetry.RecordPhaseStart(feat, phase, agentName); err != nil {
+	PrintPermissionBanner(r.Manual)
+
+	if err := telemetry.RecordPhaseStart(feat, phase, agentName, string(EffectiveMode(r.Manual))); err != nil {
 		return nil, fmt.Errorf("record start: %w", err)
 	}
 
-	args := []string{"run", "--dangerously-skip-permissions", prompt}
-	if agentCfg.Cmd == "claude" {
-		args = []string{"--dangerously-skip-permissions", prompt}
-	}
+	args := buildBatchArgs(agentCfg, prompt, r.Manual)
 	cmd := exec.CommandContext(ctx, agentCfg.Cmd, args...)
 
 	workDir := projectRoot
@@ -117,6 +119,20 @@ func (r *Runner) Run(ctx context.Context, feat *feature.Feature, phase, prompt s
 	}
 
 	return result, err
+}
+
+// buildBatchArgs constructs the argv for a non-interactive agent invocation.
+// Permission flags are placed before the positional prompt so they are parsed
+// as options. The "run" subcommand is used for every agent except claude, which
+// takes the prompt directly.
+func buildBatchArgs(agentCfg *config.AgentConfig, prompt string, manual bool) []string {
+	var args []string
+	if agentCfg.Cmd != "claude" {
+		args = append(args, "run")
+	}
+	args = append(args, PermissionArgs(agentCfg, manual)...)
+	args = append(args, prompt)
+	return args
 }
 
 func estimateTokens(text string) int {

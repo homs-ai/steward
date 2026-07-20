@@ -33,6 +33,7 @@ Phase 2: Executes tests and generates test report`,
 		pr := workflow.NewPhaseRunner(cfg)
 		pr.ProjectRoot = currentProjectRoot
 		pr.Interactive = !batchMode
+		pr.Manual = manualMode
 		if err := pr.Test(ctx, feat); err != nil {
 			return fmt.Errorf("test: %w", err)
 		}

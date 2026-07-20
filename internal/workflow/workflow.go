@@ -17,6 +17,9 @@ type PhaseRunner struct {
 	Runner      *agent.Runner
 	ProjectRoot string
 	Interactive bool
+	// Manual requests manual permission mode across both runners. The
+	// STEWARD_FORCE_MANUAL kill-switch can force manual regardless of this value.
+	Manual bool
 }
 
 func NewPhaseRunner(cfg *config.Config) *PhaseRunner {
@@ -56,6 +59,7 @@ func (pr *PhaseRunner) buildPhasePrompt(feat *feature.Feature, phase string, ext
 
 func (pr *PhaseRunner) runPhase(ctx context.Context, feat *feature.Feature, phase, batchPrompt string) error {
 	if !pr.Interactive {
+		pr.Runner.Manual = pr.Manual
 		_, err := pr.Runner.Run(ctx, feat, phase, batchPrompt, pr.ProjectRoot)
 		return err
 	}
@@ -73,6 +77,7 @@ func (pr *PhaseRunner) runPhase(ctx context.Context, feat *feature.Feature, phas
 
 	interactiveRunner := agent.NewInteractiveRunner(pr.Config)
 	interactiveRunner.ProjectRoot = pr.ProjectRoot
+	interactiveRunner.Manual = pr.Manual
 
 	_, err := interactiveRunner.RunInteractive(ctx, feat, phase, interactivePrompt, agent.InteractiveOptions{})
 	return err

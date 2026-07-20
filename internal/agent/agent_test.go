@@ -63,6 +63,13 @@ func TestAvailableAgents(t *testing.T) {
 func TestBuildAgentArgs(t *testing.T) {
 	promptText := "test prompt text"
 
+	// These cases run in manual mode so no permission flag is prepended and the
+	// prompt-flag placement can be asserted directly (first arg = flag or prompt).
+	//
+	// Interactive claude/opencode take the prompt positionally regardless of the
+	// configured PromptFlag: that flag is the *batch* (non-interactive) flag
+	// (e.g. claude's -p/--print), which would run a one-shot and kill the PTY
+	// session. Only aider uses a flag interactively.
 	tests := []struct {
 		name       string
 		agentName  string
@@ -70,20 +77,20 @@ func TestBuildAgentArgs(t *testing.T) {
 		expectLen  int
 		checkArg   string
 	}{
-		{"opencode uses --prompt flag", "opencode", "--prompt", 2, "--prompt"},
-		{"claude uses -p flag", "claude", "-p", 2, "-p"},
-		{"claude-code uses -p flag", "claude-code", "-p", 2, "-p"},
+		{"opencode ignores configured -p-style flag, stays positional", "opencode", "--prompt", 1, ""},
+		{"claude ignores -p flag, stays positional", "claude", "-p", 1, ""},
+		{"claude-code ignores -p flag, stays positional", "claude-code", "-p", 1, ""},
 		{"aider uses --message flag", "aider", "--message", 2, "--message"},
-		{"opencode falls back when prompt_flag empty", "opencode", "", 2, "--prompt"},
-		{"claude falls back when prompt_flag empty", "claude", "", 2, "-p"},
-		{"claude-code falls back when prompt_flag empty", "claude-code", "", 2, "-p"},
+		{"opencode positional when prompt_flag empty", "opencode", "", 1, ""},
+		{"claude positional when prompt_flag empty", "claude", "", 1, ""},
+		{"claude-code positional when prompt_flag empty", "claude-code", "", 1, ""},
 		{"aider falls back when prompt_flag empty", "aider", "", 2, "--message"},
-		{"unknown agent returns empty args", "custom-agent", "", 0, ""},
+		{"unknown agent returns positional prompt only", "custom-agent", "", 1, ""},
 	}
 
 	for _, tt := range tests {
 		agentCfg := &config.AgentConfig{PromptFlag: tt.promptFlag}
-		r := &InteractiveRunner{Config: &config.Config{}}
+		r := &InteractiveRunner{Config: &config.Config{}, Manual: true}
 		args := r.buildAgentArgs(agentCfg, tt.agentName, "brainstorm", promptText)
 		if len(args) != tt.expectLen {
 			t.Errorf("%s: expected %d args, got %d: %v", tt.name, tt.expectLen, len(args), args)
@@ -91,10 +98,126 @@ func TestBuildAgentArgs(t *testing.T) {
 		if tt.checkArg != "" && (len(args) == 0 || args[0] != tt.checkArg) {
 			t.Errorf("%s: expected first arg %q, got %v", tt.name, tt.checkArg, args)
 		}
-		if tt.checkArg != "" && len(args) > 1 && args[1] != promptText {
-			t.Errorf("%s: expected second arg to be prompt text, got %q", tt.name, args[1])
+		// Prompt text is always the final positional argument.
+		if len(args) > 0 && args[len(args)-1] != promptText {
+			t.Errorf("%s: expected last arg to be prompt text, got %q", tt.name, args[len(args)-1])
 		}
 	}
+}
+
+func TestBuildAgentArgsAutoPrependsSkipFlag(t *testing.T) {
+	t.Setenv(forceManualEnv, "")
+	promptText := "hello"
+
+	// opencode: --auto is prepended, prompt stays positional.
+	oc := &config.AgentConfig{SkipPermsFlag: "--auto"}
+	r := &InteractiveRunner{Config: &config.Config{}, Manual: false}
+	args := r.buildAgentArgs(oc, "opencode", "brainstorm", promptText)
+	want := []string{"--auto", promptText}
+	if !equalArgs(args, want) {
+		t.Errorf("opencode auto: got %v, want %v", args, want)
+	}
+
+	// aider: --yes-always before --message flag before prompt.
+	ai := &config.AgentConfig{SkipPermsFlag: "--yes-always", PromptFlag: "--message"}
+	args = r.buildAgentArgs(ai, "aider", "implement", promptText)
+	want = []string{"--yes-always", "--message", promptText}
+	if !equalArgs(args, want) {
+		t.Errorf("aider auto: got %v, want %v", args, want)
+	}
+}
+
+func TestBuildBatchArgs(t *testing.T) {
+	t.Setenv(forceManualEnv, "")
+	prompt := "do the thing"
+
+	tests := []struct {
+		name   string
+		cmd    string
+		skip   string
+		manual bool
+		want   []string
+	}{
+		{"claude auto", "claude", "--dangerously-skip-permissions", false, []string{"--dangerously-skip-permissions", prompt}},
+		{"claude manual", "claude", "--dangerously-skip-permissions", true, []string{prompt}},
+		{"opencode auto", "opencode", "--auto", false, []string{"run", "--auto", prompt}},
+		{"opencode manual", "opencode", "--auto", true, []string{"run", prompt}},
+		{"aider auto", "aider", "--yes-always", false, []string{"run", "--yes-always", prompt}},
+	}
+
+	for _, tt := range tests {
+		agentCfg := &config.AgentConfig{Cmd: tt.cmd, SkipPermsFlag: tt.skip}
+		got := buildBatchArgs(agentCfg, prompt, tt.manual)
+		if !equalArgs(got, tt.want) {
+			t.Errorf("%s: got %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestPermissionArgs(t *testing.T) {
+	agents := map[string]string{
+		"claude-code": "--dangerously-skip-permissions",
+		"opencode":    "--auto",
+		"aider":       "--yes-always",
+	}
+
+	for name, flag := range agents {
+		cfg := &config.AgentConfig{SkipPermsFlag: flag}
+
+		// auto → skip flag emitted
+		t.Setenv(forceManualEnv, "")
+		if got := PermissionArgs(cfg, false); !equalArgs(got, []string{flag}) {
+			t.Errorf("%s auto: got %v, want [%s]", name, got, flag)
+		}
+
+		// manual → nothing
+		if got := PermissionArgs(cfg, true); len(got) != 0 {
+			t.Errorf("%s manual: got %v, want empty", name, got)
+		}
+
+		// force-manual via env → nothing even with manual=false
+		t.Setenv(forceManualEnv, "1")
+		if got := PermissionArgs(cfg, false); len(got) != 0 {
+			t.Errorf("%s force-manual: got %v, want empty", name, got)
+		}
+	}
+}
+
+func TestPermissionArgsEmptyFlag(t *testing.T) {
+	t.Setenv(forceManualEnv, "")
+	cfg := &config.AgentConfig{SkipPermsFlag: ""}
+	if got := PermissionArgs(cfg, false); len(got) != 0 {
+		t.Errorf("empty skip flag: got %v, want empty", got)
+	}
+}
+
+func TestEffectiveMode(t *testing.T) {
+	t.Setenv(forceManualEnv, "")
+	if m := EffectiveMode(false); m != PermissionAuto {
+		t.Errorf("auto: got %q", m)
+	}
+	if m := EffectiveMode(true); m != PermissionManual {
+		t.Errorf("manual: got %q", m)
+	}
+	t.Setenv(forceManualEnv, "1")
+	if m := EffectiveMode(false); m != PermissionForceManual {
+		t.Errorf("force-manual: got %q", m)
+	}
+	if m := EffectiveMode(true); m != PermissionForceManual {
+		t.Errorf("force-manual overrides manual: got %q", m)
+	}
+}
+
+func equalArgs(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 func TestNewInteractiveRunner(t *testing.T) {

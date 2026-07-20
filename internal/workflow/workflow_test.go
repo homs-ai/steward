@@ -102,7 +102,7 @@ func TestRequireRatingValidRange(t *testing.T) {
 	for _, tt := range tests {
 		_, f := setupTest(t)
 
-		telemetry.RecordPhaseStart(f, "brainstorm", "test-agent")
+		telemetry.RecordPhaseStart(f, "brainstorm", "test-agent", "auto")
 		telemetry.RecordPhaseEnd(f, "brainstorm", 100, 50, 0, 0, "")
 
 		oldStdin := os.Stdin
@@ -127,7 +127,7 @@ func TestRequireRatingInvalidInput(t *testing.T) {
 	for _, input := range tests {
 		_, f := setupTest(t)
 
-		telemetry.RecordPhaseStart(f, "brainstorm", "test-agent")
+		telemetry.RecordPhaseStart(f, "brainstorm", "test-agent", "auto")
 		telemetry.RecordPhaseEnd(f, "brainstorm", 100, 50, 0, 0, "")
 
 		oldStdin := os.Stdin
@@ -312,6 +312,86 @@ steward_home: ` + filepath.Join(home, ".steward") + `
 	}
 	if ft.Phases["brainstorm"].ExitCode != 0 {
 		t.Errorf("expected exit code 0, got %d", ft.Phases["brainstorm"].ExitCode)
+	}
+}
+
+// TestBrainstormBatchPermissionMode is an acceptance test that runs the batch
+// pipeline end-to-end and asserts the effective permission mode is threaded from
+// the PhaseRunner.Manual flag (and the STEWARD_FORCE_MANUAL kill-switch) all the
+// way into recorded telemetry.
+func TestBrainstormBatchPermissionMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		manual      bool
+		forceManual string
+		wantMode    string
+	}{
+		{"auto (default)", false, "", "auto"},
+		{"manual flag", true, "", "manual"},
+		{"force-manual kill-switch overrides auto", false, "1", "force-manual"},
+		{"force-manual kill-switch overrides manual", true, "1", "force-manual"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			home := t.TempDir()
+			t.Setenv("HOME", home)
+			t.Setenv("STEWARD_FORCE_MANUAL", tt.forceManual)
+
+			configDir := filepath.Join(home, ".config", "steward")
+			if err := os.MkdirAll(configDir, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			yamlContent := `
+default_agent: test-perm-agent
+agents:
+  test-perm-agent:
+    cmd: echo
+    phases: [brainstorm]
+    skip_perms_flag: "--auto"
+    max_input_tokens: 32000
+phases:
+  brainstorm:
+    agent: test-perm-agent
+    max_input_tokens: 32000
+steward_home: ` + filepath.Join(home, ".steward") + `
+`
+			if err := os.WriteFile(filepath.Join(configDir, "config.yaml"), []byte(yamlContent), 0644); err != nil {
+				t.Fatal(err)
+			}
+
+			cfg, err := config.Load()
+			if err != nil {
+				t.Fatalf("config.Load() error: %v", err)
+			}
+
+			f, err := feature.Init(cfg, "test-project", "perm-mode-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			pr := NewPhaseRunner(cfg)
+			pr.Interactive = false
+			pr.Manual = tt.manual
+			pr.ProjectRoot = f.Dir
+
+			if err := pr.Brainstorm(context.Background(), f, "test input"); err != nil {
+				t.Fatalf("Brainstorm() returned error: %v", err)
+			}
+
+			ft, err := telemetry.Load(f)
+			if err != nil {
+				t.Fatalf("Load telemetry error: %v", err)
+			}
+			p := ft.Phases["brainstorm"]
+			if p == nil {
+				t.Fatal("expected brainstorm telemetry")
+			}
+			if p.PermissionMode != tt.wantMode {
+				t.Errorf("expected permission_mode %q, got %q", tt.wantMode, p.PermissionMode)
+			}
+		})
 	}
 }
 
