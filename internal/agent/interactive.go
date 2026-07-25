@@ -216,12 +216,17 @@ func (r *InteractiveRunner) buildAgentArgs(agentCfg *config.AgentConfig, agentNa
 	// The prompt flag here governs an *interactive* PTY session, which is a
 	// different mode from the batch path. agentCfg.PromptFlag holds the batch
 	// (non-interactive) flag — e.g. claude's -p/--print, which runs a one-shot
-	// and exits immediately, breaking the interactive session. So claude and
-	// opencode take the prompt positionally regardless of the configured flag.
+	// and exits immediately, breaking the interactive session. So claude takes
+	// the prompt positionally. opencode and aider use their interactive prompt
+	// flags (--prompt, --message) instead.
 	flag := agentCfg.PromptFlag
 	switch agentName {
-	case "claude", "claude-code", "opencode":
+	case "claude", "claude-code":
 		flag = ""
+	case "opencode":
+		if flag == "" {
+			flag = "--prompt"
+		}
 	case "aider":
 		if flag == "" {
 			flag = "--message"

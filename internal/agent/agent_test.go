@@ -66,10 +66,10 @@ func TestBuildAgentArgs(t *testing.T) {
 	// These cases run in manual mode so no permission flag is prepended and the
 	// prompt-flag placement can be asserted directly (first arg = flag or prompt).
 	//
-	// Interactive claude/opencode take the prompt positionally regardless of the
+	// Interactive claude takes the prompt positionally regardless of the
 	// configured PromptFlag: that flag is the *batch* (non-interactive) flag
 	// (e.g. claude's -p/--print), which would run a one-shot and kill the PTY
-	// session. Only aider uses a flag interactively.
+	// session. Only aider uses a flag interactively. opencode uses --prompt.
 	tests := []struct {
 		name       string
 		agentName  string
@@ -77,11 +77,11 @@ func TestBuildAgentArgs(t *testing.T) {
 		expectLen  int
 		checkArg   string
 	}{
-		{"opencode ignores configured -p-style flag, stays positional", "opencode", "--prompt", 1, ""},
+		{"opencode uses --prompt flag", "opencode", "--prompt", 2, "--prompt"},
+		{"opencode falls back to --prompt when prompt_flag empty", "opencode", "", 2, "--prompt"},
 		{"claude ignores -p flag, stays positional", "claude", "-p", 1, ""},
 		{"claude-code ignores -p flag, stays positional", "claude-code", "-p", 1, ""},
 		{"aider uses --message flag", "aider", "--message", 2, "--message"},
-		{"opencode positional when prompt_flag empty", "opencode", "", 1, ""},
 		{"claude positional when prompt_flag empty", "claude", "", 1, ""},
 		{"claude-code positional when prompt_flag empty", "claude-code", "", 1, ""},
 		{"aider falls back when prompt_flag empty", "aider", "", 2, "--message"},
@@ -109,11 +109,11 @@ func TestBuildAgentArgsAutoPrependsSkipFlag(t *testing.T) {
 	t.Setenv(forceManualEnv, "")
 	promptText := "hello"
 
-	// opencode: --auto is prepended, prompt stays positional.
+	// opencode: --auto is prepended, --prompt flag before prompt.
 	oc := &config.AgentConfig{SkipPermsFlag: "--auto"}
 	r := &InteractiveRunner{Config: &config.Config{}, Manual: false}
 	args := r.buildAgentArgs(oc, "opencode", "brainstorm", promptText)
-	want := []string{"--auto", promptText}
+	want := []string{"--auto", "--prompt", promptText}
 	if !equalArgs(args, want) {
 		t.Errorf("opencode auto: got %v, want %v", args, want)
 	}
