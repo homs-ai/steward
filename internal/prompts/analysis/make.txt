@@ -1,0 +1,12 @@
+The project has a Makefile. Pin down the following build-specific details:
+
+- Default target (first rule) and documented targets (especially `help`, `build`, `test`, `clean`).
+- Toolchain each target invokes (go, cargo, docker, npm, pip, dotnet, …) — these reveal the build system.
+- Variables (CFLAGS, IMAGE, VERSION), `include`d makefiles, and conditional rules.
+- Phony targets and prerequisites that reveal build order and dependency steps.
+
+Concrete discovery commands:
+- `make -qp 2>/dev/null | grep -E '^[a-zA-Z0-9_.-]+:' | grep -v '^Makefile' | sort`   target list
+- `make help`                        when defined
+- `grep -nE '^(\.PHONY|[a-zA-Z0-9_.-]+:|[A-Z_]+[ ]*[:?]?=)' Makefile`   structure
+- Read the Makefile to map each target to the underlying toolchain.

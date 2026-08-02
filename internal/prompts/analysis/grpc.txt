@@ -1,0 +1,12 @@
+The project defines gRPC/protobuf services (*.proto present). Pin down the following build-specific details:
+
+- Services, RPCs, message and enum types per .proto file.
+- Package names and imports (e.g. `google/protobuf/timestamp.proto`) — external dependencies.
+- Codegen: protoc plugins used (go, go-grpc, grpc-python, grpc-web, buf) and the target languages.
+- Whether `buf.yaml` / `buf.gen.yaml` drives generation.
+
+Concrete discovery commands:
+- `find . -name '*.proto'`               inventory
+- `grep -nE '^\s*(service|rpc|message|enum) ' $(find . -name '*.proto')`   surface definitions
+- `protoc --version` / `buf --version`   toolchain availability
+- `cat buf.yaml buf.gen.yaml 2>/dev/null`   generation config (if present)
