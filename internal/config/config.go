@@ -38,12 +38,20 @@ type GitConfig struct {
 	StashOnDirty   bool   `mapstructure:"stash_on_dirty" yaml:"stash_on_dirty"`
 }
 
+type RAGConfig struct {
+	Backend   string `mapstructure:"backend" yaml:"backend"`
+	ModelPath string `mapstructure:"model_path" yaml:"model_path"`
+	StorePath string `mapstructure:"store_path" yaml:"store_path"`
+	Enabled   bool   `mapstructure:"enabled" yaml:"enabled"`
+}
+
 type Config struct {
 	StewardHome  string                  `mapstructure:"steward_home" yaml:"steward_home"`
 	DefaultAgent string                  `mapstructure:"default_agent" yaml:"default_agent"`
 	Agents       map[string]*AgentConfig `mapstructure:"agents" yaml:"agents"`
 	Phases       map[string]*PhaseConfig `mapstructure:"phases" yaml:"phases"`
 	Git          *GitConfig              `mapstructure:"git" yaml:"git"`
+	RAG          *RAGConfig              `mapstructure:"rag" yaml:"rag"`
 }
 
 func DefaultConfig() *Config {
@@ -53,6 +61,12 @@ func DefaultConfig() *Config {
 		Git: &GitConfig{
 			AutoBranch:   "prompt",
 			StashOnDirty: false,
+		},
+		RAG: &RAGConfig{
+			Backend:   "goformer",
+			ModelPath: filepath.Join(os.Getenv("HOME"), ".steward", "models", "goformer"),
+			StorePath: filepath.Join(os.Getenv("HOME"), ".steward", "rag", "store"),
+			Enabled:   true,
 		},
 		Agents: map[string]*AgentConfig{
 			"claude-code": {
@@ -171,6 +185,13 @@ func Save(cfg *Config) error {
 		v.Set("git.branch_template", cfg.Git.BranchTemplate)
 		v.Set("git.default_branch", cfg.Git.DefaultBranch)
 		v.Set("git.stash_on_dirty", cfg.Git.StashOnDirty)
+	}
+
+	if cfg.RAG != nil {
+		v.Set("rag.backend", cfg.RAG.Backend)
+		v.Set("rag.model_path", cfg.RAG.ModelPath)
+		v.Set("rag.store_path", cfg.RAG.StorePath)
+		v.Set("rag.enabled", cfg.RAG.Enabled)
 	}
 
 	return v.WriteConfigAs(filepath.Join(configDir, "config.yaml"))

@@ -2,13 +2,19 @@ package workflow
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/k/steward/internal/agent"
 	"github.com/k/steward/internal/config"
+	"github.com/k/steward/internal/discovery"
+	"github.com/k/steward/internal/fingerprint"
 	"github.com/k/steward/internal/feature"
 	"github.com/k/steward/internal/prompts"
+	"github.com/k/steward/internal/runtime"
 	"github.com/k/steward/internal/telemetry"
 )
 
@@ -107,14 +113,64 @@ Write this after the last occurrence of <<<STALE>>> in %s/brainstorm.md. Format 
 func (pr *PhaseRunner) Research(ctx context.Context, feat *feature.Feature) error {
 	brainstormContent, _, _ := feat.ReadAfterStale("brainstorm.md")
 
+	existingResearch, _, _ := feat.ReadAfterStale("research.md")
+
+	var detectedPatterns []DetectedPattern
+	if pr.ProjectRoot != "" {
+		patterns, err := DetectBuildPatterns(pr.Config.StewardHome, pr.ProjectRoot)
+		if err == nil {
+			detectedPatterns = patterns
+		}
+	}
+
+	var discoveryResults string
+	if pr.ProjectRoot != "" {
+		cmdSet := discovery.NewCommandSet(pr.ProjectRoot, 30*time.Second)
+		ecosystems := make([]string, 0, len(detectedPatterns))
+		for _, p := range detectedPatterns {
+			ecosystems = append(ecosystems, p.Name)
+		}
+		filteredCmds := discovery.FilterByEcosystem(ecosystems, discovery.StandardCommands)
+		results := cmdSet.RunAll(ctx, filteredCmds)
+		discoveryResults = discovery.ResultsToText(results)
+	}
+
+	var runtimeProbes string
+	if pr.Config.RAG == nil || pr.Config.RAG.Enabled {
+		probeResults := runtime.RunProbes(ctx)
+		if probeJSON, err := jsonMarshal(probeResults); err == nil {
+			runtimeProbes = probeJSON
+		}
+	}
+
+	fingerprintHash := ""
+	if pr.ProjectRoot != "" {
+		fp, err := fingerprint.ComputeFingerprint(pr.ProjectRoot)
+		if err == nil {
+			fingerprintHash = fp
+		}
+	}
+
+	fragments := assembleFragments(detectedPatterns, discoveryResults, runtimeProbes, fingerprintHash)
+
 	prompt := fmt.Sprintf(`You are performing a research phase for a software feature called '%s'.
 
 BRAINSTORM OUTPUT:
 %s
 
-Only read content after the last occurrence of <<<STALE>>> in the brainstorm content above.
+%s
+
+BUILD-SPECIFIC FRAGMENTS:
+%s
 
 This is the grounding phase. Transform the brainstormed ideas into facts by researching feasibility, existing tools, APIs, and alternatives.
+
+IMPORTANT INSTRUCTIONS:
+- You MUST completely rewrite the research.md file from scratch.
+- Do NOT use <<<STALE>>> markers. Write the complete document fresh.
+- The previous research.md content is provided above for context, but you should replace it entirely.
+- Reference the build-specific fragments and discovery commands above in your analysis.
+- Capture your research session in %s/research_session.md with a timestamp and summary of changes.
 
 Produce a structured research document covering:
 - Feasibility assessment for each key idea from the brainstorm
@@ -125,10 +181,64 @@ Produce a structured research document covering:
 - Key assumptions from the brainstorm that are validated or invalidated
 - Open questions that remain after research, and any new directions they suggest
 
-Write this after the last occurrence of <<<STALE>>> in %s/research.md. Format it clearly in Markdown.`,
-		feat.DisplayName(), brainstormContent, feat.Dir)
+Write the COMPLETE research document to %s/research.md. Do NOT append to existing content.
+Format it clearly in Markdown.`,
+		feat.DisplayName(),
+		brainstormContent,
+		existingResearchContext(existingResearch),
+		fragments,
+		feat.Dir,
+		feat.Dir)
 
 	return pr.runPhase(ctx, feat, "research", prompt)
+}
+
+func existingResearchContext(existing string) string {
+	if strings.TrimSpace(existing) == "" {
+		return "No prior research exists yet."
+	}
+	return fmt.Sprintf("EXISTING RESEARCH (for reference, but replace entirely):\n%s", existing)
+}
+
+func assembleFragments(patterns []DetectedPattern, discoveryResults, runtimeProbes, fingerprintHash string) string {
+	var sb strings.Builder
+
+	if len(patterns) > 0 {
+		sb.WriteString("Detected build patterns:\n")
+		for _, p := range patterns {
+			sb.WriteString(fmt.Sprintf("- %s (manifest: %s)\n", p.Name, p.File))
+			if p.Template != "" {
+				sb.WriteString(fmt.Sprintf("  Template guidance:\n  %s\n", strings.ReplaceAll(p.Template, "\n", "\n  ")))
+			}
+		}
+		sb.WriteString("\n")
+	}
+
+	if discoveryResults != "" {
+		sb.WriteString("Discovery command output:\n```\n")
+		sb.WriteString(discoveryResults)
+		sb.WriteString("```\n\n")
+	}
+
+	if runtimeProbes != "" {
+		sb.WriteString("Runtime probe results:\n```json\n")
+		sb.WriteString(runtimeProbes)
+		sb.WriteString("\n```\n\n")
+	}
+
+	if fingerprintHash != "" {
+		sb.WriteString(fmt.Sprintf("Build fingerprint: %s\n", fingerprintHash))
+	}
+
+	return sb.String()
+}
+
+func jsonMarshal(v interface{}) (string, error) {
+	data, err := json.MarshalIndent(v, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func (pr *PhaseRunner) Analysis(ctx context.Context, feat *feature.Feature) error {

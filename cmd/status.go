@@ -9,6 +9,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/k/steward/internal/config"
 	"github.com/k/steward/internal/feature"
 )
 
@@ -73,8 +74,25 @@ var statusCmd = &cobra.Command{
 			fmt.Printf("%-30s %-20s %-20s\n", name, phaseDisplay, lastAct)
 		}
 		fmt.Println(strings.Repeat("─", 90))
+		ragStatus(cfg)
 		return nil
 	},
+}
+
+// ragStatus prints RAG model status when configured.
+func ragStatus(cfg *config.Config) {
+	if cfg.RAG == nil || !cfg.RAG.Enabled {
+		return
+	}
+	modelPath := cfg.RAG.ModelPath
+	if modelPath == "" {
+		return
+	}
+	if _, err := os.Stat(modelPath); err == nil {
+		fmt.Printf("  RAG model:  present (%s)\n", cfg.RAG.Backend)
+	} else {
+		fmt.Printf("  RAG model:  not found (run 'steward rag setup')\n")
+	}
 }
 
 // warnMovedProject warns when the git-derived project name differs from an
