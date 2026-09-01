@@ -1,0 +1,13 @@
+The project is a Go workspace (go.work present). Pin down the following build-specific details:
+
+- Workspace modules (`use` directives) and the workspace go version.
+- `replace` directives that span modules; inter-module imports within the workspace.
+- Whether `go.work.sum` is present and committed.
+- Per-module build entry points and how CI builds the workspace (targets per module).
+
+Concrete discovery commands:
+- `go work edit -json`               workspace structure as JSON
+- `go work sync`                     sync modules (read-only inspection first; note if changes are needed)
+- `go list -m -json all`             module set across the workspace
+- `go mod graph`                     dependency graph (run per module directory)
+- `grep -nE '^(use|replace|go)' go.work`

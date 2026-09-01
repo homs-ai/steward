@@ -1,0 +1,13 @@
+The project has a Dockerfile. Pin down the following build-specific details:
+
+- Base image(s) and tag/digest; whether FROM pins a digest (reproducibility).
+- Multi-stage build: build vs runtime stages, `COPY --from=<stage>` usage.
+- Installed system packages, copied artifacts, build args, and secrets.
+- `EXPOSE` / `ENTRYPOINT` / `CMD`, and whether the image runs as root or a dedicated user.
+- `.dockerignore` contents (what is excluded from the build context).
+
+Concrete discovery commands:
+- `docker history <image> --no-trunc`    layer provenance (image must be built)
+- `docker image inspect <image>`         config, exposed ports, entrypoint
+- `docker build --check .`               syntax/legacy check (Docker 24+)
+- `cat .dockerignore`                    context exclusions

@@ -1,0 +1,13 @@
+The project is a JVM project (pom.xml or build.gradle present). Pin down the following build-specific details:
+
+- Build tool: Maven (pom.xml), Gradle (build.gradle / build.gradle.kts), and whether the wrapper is committed.
+- Coordinates: groupId/artifactId/version (Maven) or group/name/version (Gradle).
+- Java source/target level and toolchain; multi-module layout (parent poms / subprojects).
+- Dependencies and plugins; whether a dependency-management BOM or platform is used.
+
+Concrete discovery commands:
+- `java -version`
+- `mvn dependency:tree -Dscope=compile`    compile-scoped dependency tree (Maven)
+- `mvn help:evaluate -Dexpression=project.version -q -DforceStdout`   version
+- `./gradlew dependencies --configuration compileClasspath`   compile classpath (Gradle)
+- `./gradlew projects`                     multi-module inventory

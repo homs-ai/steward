@@ -1,0 +1,13 @@
+The project is a Node.js project (package.json present). Pin down the following build-specific details:
+
+- Package manager and lockfile: npm (`package-lock.json`), yarn (`yarn.lock`), pnpm (`pnpm-lock.yaml`), or bun (`bun.lock*`).
+- The `scripts` block: build, test, lint, and dev commands; the `engines` field (Node version constraint).
+- Runtime vs dev dependencies, and any workspace/monorepo setup (`workspaces` field, lerna, or turbo).
+- Build tooling: bundler (webpack/vite/esbuild/rollup), TypeScript config, Babel, SWC.
+
+Concrete discovery commands:
+- `node --version`
+- `npm ls --all`                        full dependency tree (npm only)
+- `npm run`                             list available scripts
+- `npm pkg get scripts engines dependencies devDependencies`   structured manifest fields
+- `cat package.json`                    read the manifest directly

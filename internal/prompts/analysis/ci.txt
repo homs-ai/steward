@@ -1,0 +1,13 @@
+The project has CI workflows (.github/workflows/*). Pin down the following build-specific details:
+
+- Event triggers (`on:` — push, PR, schedule, workflow_dispatch) and branch filters.
+- Jobs and their OS/runtime matrices; steps that build, test, lint, and deploy.
+- Caches (actions/cache, Gradle/Maven cache, pip cache) and their key inputs.
+- Secrets referenced (by name only — never print values) and deployment targets.
+- Status badges and required checks (branch protection).
+
+Concrete discovery commands:
+- `ls -la .github/workflows/`
+- `for f in .github/workflows/*.yml .github/workflows/*.yaml; do echo "== $f"; done`   inventory
+- Read each workflow file and summarize jobs/steps; parse `on:` triggers.
+- `git log --oneline -- .github/workflows`   workflow evolution

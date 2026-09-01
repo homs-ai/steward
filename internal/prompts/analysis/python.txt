@@ -1,0 +1,13 @@
+The project is a Python project (pyproject.toml / requirements.txt / setup.py / setup.cfg present). Pin down the following build-specific details:
+
+- Build backend (hatchling, setuptools, poetry-core, flit, uv) and project metadata in pyproject.toml.
+- Python version constraint (`requires-python`) and runtime vs dev/test extras.
+- Dependency manager: pip + requirements files, Poetry (`poetry.lock`), uv (`uv.lock`), or Pipenv (`Pipfile.lock`).
+- Entry points / console scripts, and package layout (src/ vs flat).
+
+Concrete discovery commands:
+- `python --version`
+- `pip freeze`                     installed environment snapshot
+- `poetry show` / `uv tree`        dependency trees when that manager's lockfile exists
+- `python -c "import sys; print(sys.version_info)"`
+- Read `pyproject.toml` `[project]` / `[tool.poetry]` sections directly

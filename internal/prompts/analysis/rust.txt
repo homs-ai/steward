@@ -1,0 +1,14 @@
+The project is a Rust crate (Cargo.toml present). Pin down the following build-specific details:
+
+- Crate name, edition, rust-version, and any `[features]`.
+- Workspace layout (`[workspace]` members) if present.
+- Dependencies: direct vs dev-dependencies, optional deps, and the features each pulls in.
+- Binaries vs libraries: `src/main.rs` vs `src/lib.rs`, and any `[[bin]]` targets.
+- Build entry points: Makefile / justfile / cargo aliases, and CI toolchain (stable/nightly).
+
+Concrete discovery commands:
+- `rustc --version`
+- `cargo tree`                                  dependency graph with features
+- `cargo metadata --no-deps --format-version 1`   structured manifest + workspace info (JSON)
+- `cargo clippy --all-targets --all-features -- -D warnings`   lint status (optional)
+- `grep -n "^\[features\]" -A 30 Cargo.toml`    feature list

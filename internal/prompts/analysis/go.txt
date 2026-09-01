@@ -1,0 +1,17 @@
+The project is a Go module (go.mod present). Pin down the following build-specific details:
+
+- Module path and Go version in go.mod (`module` and `go` directives).
+- Direct vs indirect dependencies, plus any `replace` / `exclude` / `retract` directives.
+- Whether a `vendor/` directory exists and is committed (vendor mode).
+- Binary entry points (`cmd/` or `package main`) and how the build is invoked (Makefile target, `go build ./...`, CI step).
+- Test setup: `_test.go` layout, testing framework (stdlib vs testify), fuzz targets, coverage gates.
+
+Concrete discovery commands:
+- `go version`
+- `go list -m -json all`                 module set with versions and replacements
+- `go mod graph`                         dependency graph (module@version pairs)
+- `go list -deps ./...`                  packages and their transitive dependencies
+- `go list ./...`                        all packages in the module
+- `grep -n "^replace" go.mod`            replacement directives
+
+Reference the real module path and dependency versions in the report; do not invent packages.

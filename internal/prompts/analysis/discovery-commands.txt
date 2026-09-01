@@ -1,0 +1,21 @@
+The following commands reveal the build-specific details of the project. Run the ones relevant to the detected ecosystems. If a command or tool is not installed, note it as absent and continue — never treat a missing tool as a failure.
+
+Universal:
+- `ls -la`                             inventory top-level build files (manifests, lockfiles, CI config)
+- `git status --short`                 current repo state; confirm the tree you are analyzing
+- `git log --oneline -5`               recent history that may explain build choices
+
+Ecosystem-specific:
+- Go:     `go version`, `go list -m -json all`, `go mod graph`
+- Node:   `node --version`, `npm ls --all`
+- Rust:   `rustc --version`, `cargo tree`
+- Python: `python --version`, `pip freeze`, `poetry show` / `uv tree` when a lockfile exists
+- Java:   `java -version`, `mvn dependency:tree` / `./gradlew dependencies`
+- .NET:   `dotnet --version`, `dotnet list package`
+- Docker: `docker-compose config`, `docker ps`, `docker image inspect <image>`
+
+System-level (only when investigating runtime/IPC):
+- `ss -tlnp`                          listening TCP/UDP sockets and owning processes
+- `ps aux`                            process list
+
+Capture each command's output verbatim into the raw-data appendix; the analysis above it must reference real files and real output, never invented details.

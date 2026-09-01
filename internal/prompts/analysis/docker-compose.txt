@@ -1,0 +1,14 @@
+The project uses Docker Compose (docker-compose.yaml / docker-compose.yml present). Pin down the following build-specific details:
+
+- Every service: image, build context, container_name, restart policy.
+- Ports published vs internal, volumes/mounts, env vars (and whether an `.env` file is used).
+- Networks, inter-service dependencies (`depends_on`), and healthchecks.
+- Overrides: `docker-compose.override.yml` or environment-specific compose files.
+- Which services are dev-only vs production.
+
+Concrete discovery commands:
+- `docker-compose config`                rendered final config (all overrides applied)
+- `docker-compose config --services`     service list
+- `docker-compose config --volumes`      declared volumes
+- `docker-compose images`                images in use (requires a running project)
+- `cat .env`                             env defaults (redact secrets)

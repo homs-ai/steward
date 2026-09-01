@@ -1,0 +1,13 @@
+The project is a .NET project (*.csproj / *.fsproj / *.sln present). Pin down the following build-specific details:
+
+- Target framework(s) and .NET SDK version (global.json pins if present).
+- Project references vs package references, and whether NuGet packages are centralized (Directory.Packages.props).
+- Solution layout (`*.sln`) and which projects are apps vs tests.
+- Build configuration: Release/Debug, platform-specific assets, self-contained vs framework-dependent publish.
+
+Concrete discovery commands:
+- `dotnet --version` / `dotnet --list-sdks`
+- `dotnet sln list`                         solution projects
+- `dotnet list <project>.csproj package`    NuGet packages (add --include-transitive for the full tree)
+- `dotnet list <project>.csproj reference`  project references
+- `dotnet msbuild <project>.csproj -getProperty:TargetFramework`
